@@ -188,7 +188,7 @@
         socket.on('seek', function(msg) {
             console.log('seek:'+msg);
             console.log(Math.abs(video.currentTime - msg));
-            if(Math.abs(video.currentTime - msg)>1){
+            if(Math.abs(video.currentTime - msg)>3){
                 video.currentTime = msg+0.05;
             }
         } );
