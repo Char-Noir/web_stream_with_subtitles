@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+      #form { background: rgba(0, 0, 0, 0.15); padding: 0.25rem; position: fixed; bottom: 0; left: 0; right: 0; display: flex; height: 3rem; box-sizing: border-box; backdrop-filter: blur(10px); }
+      #input { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
+      #input:focus { outline: none; }
+      #form > button { background: #333; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; outline: none; color: #fff; }
+
+      #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages > li { padding: 0.5rem 1rem; }
+      #messages > li:nth-child(odd) { background: #efefef; }
+      /* The Modal (background) */
+    .modal {
+      display: none; /* Hidden by default */
+      position: fixed; /* Stay in place */
+      z-index: 1; /* Sit on top */
+      left: 0;
+      top: 0;
+      width: 100%; /* Full width */
+      height: 100%; /* Full height */
+      overflow: auto; /* Enable scroll if needed */
+      background-color: rgb(0,0,0); /* Fallback color */
+      background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+
+    /* Modal Content/Box */
+    .modal-content {
+      background-color: #fefefe;
+      margin: 15% auto; /* 15% from the top and centered */
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%; /* Could be more or less, depending on screen size */
+    }
+
+    /* The Close Button */
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    </style>
+  </head>
+  <body>
+    <!-- The Modal -->
+    <div id="myModal" class="modal">
+
+      <!-- Modal content -->
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <form id="add_video">
+          <input type="text" id="video_title" placeholder="Title" required>
+          <input type="text" id="video_url" placeholder="Video URL" required>
+          <input type="checkbox" onclick="checkSubFile()" id="video_sub" value="true">Sub File</checkbox>
+          <input type="text" id="sub_url" placeholder="Subtitles URL">
+          <textarea id="sub_text" style="display:none;" placeholder="Subtitles Here"></textarea>
+          <button type="submit">Add Video</button>
+        </form>
+      </div>
+
+    </div>
+
+    <div id="video_cont">
+        <video id="video" controls preload="metadata" crossorigin="anonymous">
+            <source id="source" src="undefined" type="video/mp4">
+            <track id="track" label="English" kind="subtitles" srclang="en" src="undefined" default>
+         </video>
+    </div>
+    <ul id="playlist"></ul>
+    <!-- Trigger/Open The Modal -->
+    <button id="myBtn">Add video!</button>
+   
+   
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+
+    // Get the modal
+    var modal = document.getElementById("myModal");
+
+    // Get the button that opens the modal
+    var btn = document.getElementById("myBtn");
+
+    // Get the <span> element that closes the modal
+    var span = document.getElementsByClassName("close")[0];
+
+    // When the user clicks on the button, open the modal
+    btn.onclick = function() {
+    modal.style.display = "block";
+    }
+
+    // When the user clicks on <span> (x), close the modal
+    span.onclick = function() {
+      modal.style.display = "none";
+    }
+
+    function checkSubFile(){
+      var checkBox = document.getElementById("video_sub");
+      var subFile = document.getElementById("sub_url");
+      var subText = document.getElementById("sub_text");
+      if (checkBox.checked == true){
+        subFile.style.display = "block";
+        subText.style.display = "none";
+      } else {
+        subFile.style.display = "none";
+        subText.style.display = "block";
+      }
+    }
+
+    </script>
+
+
+    <script>
+        
+        var socket = io();
+        var sub = document.getElementById("sub");
+        var track = document.getElementById("track");
+        var playlist = document.getElementById('playlist');
+        var add_video = document.getElementById('add_video');
+        var source = document.getElementById('source');
+        var video = document.getElementById("video");
+        
+        add_video.addEventListener('submit', function(e){
+            e.preventDefault();
+            var video_url = document.getElementById('video_url');
+            var sub_url = document.getElementById('sub_url');
+            var sub_text = document.getElementById('sub_text');
+            var video_title = document.getElementById('video_title');
+            var video_sub = document.getElementById('video_sub').checked;
+            if(video_sub){
+                socket.emit('add_video', {
+                    video_url: video_url.value,
+                    sub_url: sub_url.value,
+                    video_title: video_title.value
+                });
+            } else {
+                socket.emit('add_video', {
+                    video_url: video_url.value,
+                    sub_text: sub_text.value,
+                    video_title: video_title.value
+                });
+            }
+            video_url.value = '';
+            sub_url.value = '';
+            video_title.value = '';
+            document.getElementsByClassName("close")[0].click();
+        });
+
+        
+     
+
+
+        video.addEventListener("pause", ()=>{
+            socket.emit('pause',video.currentTime);
+        });
+
+        video.addEventListener("play", ()=>{
+            socket.emit('play',video.currentTime);
+        } );
+
+        video.addEventListener('seeked', () => {
+            socket.emit('seek',video.currentTime);
+        });
+
+        socket.on('pause', function(msg) {
+            console.log('pause:'+msg);
+            video.pause();
+            video.currentTime = msg;
+        });
+
+        socket.on('play', function(msg) {
+            console.log('play:'+msg);
+            video.currentTime = msg;
+            video.play();
+        } );
+
+        socket.on('seek', function(msg) {
+            console.log('seek:'+msg);
+            console.log(Math.abs(video.currentTime - msg));
+            if(Math.abs(video.currentTime - msg)>1){
+                video.currentTime = msg+0.05;
+            }
+        } );
+        
+        socket.on('add_video', function(msg) {
+            console.log('add_video:'+msg);
+            var item = document.createElement('li');
+            item.textContent = msg.title;
+            item.addEventListener('click', function(){
+               playVideo(msg.id);
+            });
+            playlist.appendChild(item);
+        } );
+
+        function playVideo(id) {
+            console.log(id);
+            socket.emit('play_video', id);
+        }
+
+        socket.on('play_video', function(msg) {
+            console.log('play_video:'+msg);
+            source.src = msg.video_url;
+            if(msg.sub_url){
+              track.src = msg.sub_url;
+              track.kind='subtitles';
+            }else{
+              track.kind='metadata';
+              track.src = '';
+            }
+            video.load();
+        });
+
+    </script>
+  </body>
+</html>
